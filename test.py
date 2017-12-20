@@ -51,6 +51,16 @@ def test(model_path, dataset_path, output_dir):
     with open(os.path.join(output_dir, 'observation_risks.json'), 'w') as f:
       json.dump(image_risks, f)
 
+
+    # Make some urls for visualization
+    group_size = 25
+    risk_groups = [image_risks[i:i+group_size] for i in range(0,len(image_risks), group_size)]
+    with open(os.path.join(output_dir, 'identify_urls.txt'), 'w') as f:
+        for risk_group in risk_groups:
+            obs_ids = ','.join([x[0] for x in risk_group])
+            print("https://www.inaturalist.org/observations/identify?reviewed=any&quality_grade=needs_id,research&id=%s" % (obs_ids,), file=f)
+
+
 def parse_args():
 
     parser = argparse.ArgumentParser(description='Test the person classifier')
