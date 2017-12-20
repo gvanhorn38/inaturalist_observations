@@ -20,10 +20,7 @@ POOLED_TRUST_STENGTH = 10
 PROB_TRUST_PRIOR = 0.8
 PROB_TRUST = 0.8
 
-VERIFICATION_TASK = False
-DEPENDENT_LABELS = True
-
-def train(dataset_path, output_dir):
+def train(dataset_path, output_dir, estimate_priors_automatically=False, verification_task=False, dependent_labels=False):
 
     dataset = MSB.CrowdDatasetMulticlassSingleBinomial(
         name='inat_single_binomial',
@@ -32,7 +29,7 @@ def train(dataset_path, output_dir):
         computer_vision_predictor=None,
         image_dir=None,
         min_risk=0.05,
-        estimate_priors_automatically=ESTIMATE_PRIORS_AUTOMATICALLY,
+        estimate_priors_automatically=estimate_priors_automatically,
 
         class_probs=None,
         class_probs_prior_beta = GLOBAL_CLASS_PROB_PRIOR_STRENGTH,
@@ -47,8 +44,8 @@ def train(dataset_path, output_dir):
         prob_trust_beta=POOLED_TRUST_STENGTH,
         prob_trust=PROB_TRUST,
 
-        model_worker_trust=VERIFICATION_TASK,
-        recursive_trust=DEPENDENT_LABELS,
+        model_worker_trust=verification_task,
+        recursive_trust=dependent_labels,
 
         debug=2
     )
@@ -57,7 +54,7 @@ def train(dataset_path, output_dir):
     print("Loading Dataset")
     print()
     s = time.time()
-    dataset.load(dataset_path, sort_annos=VERIFICATION_TASK)
+    dataset.load(dataset_path, sort_annos=verification_task)
     e = time.time()
     t = e - s
     print("Loading time: %0.2f seconds (%0.2f minutes) (%0.2f hours)" % (t, t / 60., t / 3600.))
@@ -122,6 +119,18 @@ def parse_args():
                           help='Path to an output directory to save the model.', type=str,
                           required=True)
 
+    parser.add_argument('--estimate_priors_automatically', dest='estimate_priors_automatically',
+                        help='Estimate the global priors automatically.',
+                        required=False, action='store_true', default=False)
+
+    parser.add_argument('--verification_task', dest='verification_task',
+                        help='Model the labels as a verification task.',
+                        required=False, action='store_true', default=False)
+
+    parser.add_argument('--dependent_labels', dest='dependent_labels',
+                        help='Model the dependence in the labels recursively, as opposed to independently. Only applies with `--verification_task`.',
+                        required=False, action='store_true', default=False)
+
     parser.add_argument('--profile', dest='profile',
                         help='Run the code through cProfile',
                         required=False, action='store_true', default=False)
@@ -138,11 +147,19 @@ def main():
     if args.profile:
         pr = cProfile.Profile()
         pr.enable()
-        train(args.dataset_path, args.output_dir)
+        train(args.dataset_path, args.output_dir,
+            estimate_priors_automatically=args.estimate_priors_automatically,
+            verification_task=args.verification_task,
+            dependent_labels=args.dependent_labels
+        )
         pr.disable()
         pr.print_stats(sort='time')
     else:
-        train(args.dataset_path, args.output_dir)
+        train(args.dataset_path, args.output_dir,
+            estimate_priors_automatically=args.estimate_priors_automatically,
+            verification_task=args.verification_task,
+            dependent_labels=args.dependent_labels
+        )
 
 if __name__ == '__main__':
 

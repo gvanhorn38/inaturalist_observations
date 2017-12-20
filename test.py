@@ -33,6 +33,7 @@ def test(model_path, dataset_path, output_dir):
 
     # Copy over the learned global parameters (need to do this after loading the test dataset)
     test_dataset.copy_parameters_from(trained_model)
+    del trained_model # we can now get rid of this
 
     # Initialize any new workers
     test_dataset.initialize_parameters(avoid_if_finished=True)
