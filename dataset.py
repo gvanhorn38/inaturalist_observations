@@ -1139,7 +1139,8 @@ class iNaturalistDataset():
     select_observations_by_identification_diversity=True,
     flat_taxonomy=False,
     num_examples=5,
-    use_current_identifications=False
+    use_current_identifications=False,
+    add_empirical_probs_to_dataset=False
     ):
 
     taxon_id_to_taxon = {taxon['id'] : taxon for taxon in self.taxa}
@@ -1412,10 +1413,11 @@ class iNaturalistDataset():
     )
 
     # Compute ground truth probabilities for the dataset
-    self.add_gt_probs_to_dataset(dataset)
+    if add_empirical_probs_to_dataset:
+      self.add_gt_probs_to_dataset(dataset)
 
     # make sure that the probs are the same in the case of a flat taxonomy
-    if flat_taxonomy:
+    if flat_taxonomy and add_empirical_probs_to_dataset:
       assert np.array_equal(dataset['dataset']['global_per_class_confusion_prob'], dataset['dataset']['taxonomy_data'][0]['data']['global_per_child_confusion_prob'])
       assert np.array_equal(dataset['dataset']['global_per_class_prob_correct'], dataset['dataset']['taxonomy_data'][0]['data']['global_per_child_prob_correct'])
       assert np.array_equal(dataset['dataset']['global_class_probs'], dataset['dataset']['taxonomy_data'][0]['data']['global_per_child_probs'])
@@ -1489,6 +1491,10 @@ def parse_args():
                         help='The number of example images to save for each species. These can be used to initialize a vision system.',
                         required=False, type=int, default=0)
 
+    parser.add_argument('--add_empirical_probs_to_dataset', dest='add_empirical_probs_to_dataset',
+                        help='Add empirical ground truth probabilities to the dataset.',
+                        required=False, action='store_true', default=False)
+
     args = parser.parse_args()
     return args
 
@@ -1538,7 +1544,8 @@ def main():
     select_observations_by_identification_diversity=args.select_observations_by_identification_diversity,
     flat_taxonomy=args.flat_taxonomy,
     num_examples=args.num_examples,
-    use_current_identifications=False
+    use_current_identifications=False,
+    add_empirical_probs_to_dataset=args.add_empirical_probs_to_dataset
   )
 
   if not os.path.exists(output_dir):
@@ -1574,7 +1581,8 @@ def main():
     convert_leaf_node_keys_to_integers=args.convert_leaf_node_keys_to_integers,
     flat_taxonomy=args.flat_taxonomy,
     num_examples=0,
-    use_current_identifications=True
+    use_current_identifications=True,
+    add_empirical_probs_to_dataset=args.add_empirical_probs_to_dataset
   )
 
   test_output_dir = os.path.join(output_dir, 'test')
