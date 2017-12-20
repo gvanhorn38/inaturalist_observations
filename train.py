@@ -8,7 +8,6 @@ import time
 import numpy as np
 
 from crowdsourcing.annotations.classification import multiclass_single_binomial as MSB
-from crowdsourcing.util.taxonomy import Node, Taxonomy
 
 
 ESTIMATE_PRIORS_AUTOMATICALLY = False

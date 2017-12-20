@@ -568,7 +568,9 @@ class iNaturalistDataset():
     identifications,
     allow_non_species_identifications=False,
     convert_leaf_node_keys_to_integers=False,
-    flat_taxonomy=False):
+    flat_taxonomy=False,
+    add_ground_truth_labels=False,
+    add_empirical_class_priors=False):
 
     # Lets make sure the observations are unique
     ob_ids = set([ob['id'] for ob in observations])
@@ -617,16 +619,26 @@ class iNaturalistDataset():
       'old_node_key_to_new_node_key' : old_node_key_to_new_node_key
     }
 
+    if add_empirical_class_priors:
+      num_classes = dataset['num_classes']
+      class_counts = np.zeros(num_classes, dtype=np.float)
+      for ob in observations:
+        label = taxon_id_to_class_label[ob['community_taxon_id']]
+        class_counts[label] += 1
+      class_probs = class_counts / np.sum(class_counts)
+      dataset['global_class_probs'] = class_probs.tolist()
+
 
     gt_labels = []
-    for ob in observations:
-      gt_labels.append({
-        'image_id' : ob['id'],
-        'label' : {
-          'gtype' : 'multiclass',
-          'label' : taxon_id_to_class_label[ob['community_taxon_id']]
-        }
-      })
+    if add_ground_truth_labels:
+      for ob in observations:
+        gt_labels.append({
+          'image_id' : ob['id'],
+          'label' : {
+            'gtype' : 'multiclass',
+            'label' : taxon_id_to_class_label[ob['community_taxon_id']]
+          }
+        })
 
     workers = {}
     for ident in identifications:
@@ -771,12 +783,13 @@ class iNaturalistDataset():
     #leaf_node_id_to_order = {node_id : i for i, node_id in enumerate(ordered_leaf_node_ids)}
 
     # Leaf node class probs
-    class_counts = np.zeros(num_classes, dtype=np.float)
-    for gt_label in dataset['gt_labels']:
-      label = leaf_node_id_to_order[gt_label['label']['label']]
-      class_counts[label] += 1
-    class_probs = class_counts / np.sum(class_counts)
-    dataset['dataset']['global_class_probs'] = class_probs.tolist()
+    # NOTE: now this is computed elsewhere
+    # class_counts = np.zeros(num_classes, dtype=np.float)
+    # for gt_label in dataset['gt_labels']:
+    #   label = leaf_node_id_to_order[gt_label['label']['label']]
+    #   class_counts[label] += 1
+    # class_probs = class_counts / np.sum(class_counts)
+    # dataset['dataset']['global_class_probs'] = class_probs.tolist()
 
     #print("Class Probs")
     #print(class_probs)
@@ -1140,7 +1153,9 @@ class iNaturalistDataset():
     flat_taxonomy=False,
     num_examples=5,
     use_current_identifications=False,
-    add_empirical_probs_to_dataset=False
+    add_empirical_probs_to_dataset=False,
+    add_ground_truth_labels=False,
+    add_empirical_class_priors=False
     ):
 
     taxon_id_to_taxon = {taxon['id'] : taxon for taxon in self.taxa}
@@ -1409,7 +1424,9 @@ class iNaturalistDataset():
       filtered_identifications,
       allow_non_species_identifications,
       convert_leaf_node_keys_to_integers,
-      flat_taxonomy
+      flat_taxonomy,
+      add_ground_truth_labels,
+      add_empirical_class_priors
     )
 
     # Compute ground truth probabilities for the dataset
@@ -1495,6 +1512,14 @@ def parse_args():
                         help='Add empirical ground truth probabilities to the dataset.',
                         required=False, action='store_true', default=False)
 
+    parser.add_argument('--add_ground_truth_labels', dest='add_ground_truth_labels',
+                        help='Add ground truth labels (i.e. the community ids) to the dataset.',
+                        required=False, action='store_true', default=False)
+
+    parser.add_argument('--add_empirical_class_priors', dest='add_empirical_class_priors',
+                        help='Add empirical class priors (computed from the community ids) to the dataset.',
+                        required=False, action='store_true', default=False)
+
     args = parser.parse_args()
     return args
 
@@ -1545,7 +1570,9 @@ def main():
     flat_taxonomy=args.flat_taxonomy,
     num_examples=args.num_examples,
     use_current_identifications=False,
-    add_empirical_probs_to_dataset=args.add_empirical_probs_to_dataset
+    add_empirical_probs_to_dataset=args.add_empirical_probs_to_dataset,
+    add_ground_truth_labels=args.add_ground_truth_labels,
+    add_empirical_class_priors=args.add_empirical_class_priors
   )
 
   if not os.path.exists(output_dir):
@@ -1582,7 +1609,9 @@ def main():
     flat_taxonomy=args.flat_taxonomy,
     num_examples=0,
     use_current_identifications=True,
-    add_empirical_probs_to_dataset=args.add_empirical_probs_to_dataset
+    add_empirical_probs_to_dataset=args.add_empirical_probs_to_dataset,
+    add_ground_truth_labels=arg.add_ground_truth_labels,
+    add_empirical_class_priors=args.add_empirical_class_priors
   )
 
   test_output_dir = os.path.join(output_dir, 'test')
