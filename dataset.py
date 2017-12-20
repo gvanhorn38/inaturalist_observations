@@ -1610,7 +1610,7 @@ def main():
     num_examples=0,
     use_current_identifications=True,
     add_empirical_probs_to_dataset=args.add_empirical_probs_to_dataset,
-    add_ground_truth_labels=arg.add_ground_truth_labels,
+    add_ground_truth_labels=args.add_ground_truth_labels,
     add_empirical_class_priors=args.add_empirical_class_priors
   )
 
