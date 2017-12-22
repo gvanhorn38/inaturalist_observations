@@ -2,45 +2,89 @@ from __future__ import absolute_import, division, print_function
 
 import argparse
 import cProfile
+import csv
 import json
 import os
 import time
 
 import numpy as np
 
-from crowdsourcing.annotations.classification import multiclass_single_binomial as MSB
+from crowdsourcing.annotations.classification import multiclass_single_binomial_nt as MSB
 
 def test(model_path, dataset_path, output_dir):
 
+    print("##############################")
+    print("Loading Dataset")
+    print()
+    s = time.time()
+
     # Load the trained model
-    trained_model = MSB.CrowdDatasetMulticlassSingleBinomial()
+    trained_model = MSB.CrowdDatasetMulticlass()
     trained_model.load(model_path)
 
     # BUG: the class_prob and class_prob_prior dict keys get converted to strings.
     # Lets change them back to ints
-    trained_model.class_probs = {int(k) : v for k, v in trained_model.class_probs.items()}
-    trained_model.class_probs_prior = {int(k) : v for k, v in trained_model.class_probs_prior.items()}
+    #trained_model.class_probs = {int(k) : v for k, v in trained_model.class_probs.items()}
+    #trained_model.class_probs_prior = {int(k) : v for k, v in trained_model.class_probs_prior.items()}
 
-    test_dataset = MSB.CrowdDatasetMulticlassSingleBinomial()
+    test_dataset = MSB.CrowdDatasetMulticlass()
 
     # Copy over the learned worker params
     test_dataset.workers = trained_model.workers
+    del trained_model
+
+    # Mark the workers' parameters as finished
     for worker in test_dataset.workers.itervalues():
         worker.finished=True
 
     # Load in the test images and annotations and any new workers
     test_dataset.load(dataset_path, sort_annos=True, overwrite_workers=False)
 
-    # Copy over the learned global parameters (need to do this after loading the test dataset)
-    test_dataset.copy_parameters_from(trained_model)
-    del trained_model # we can now get rid of this
+    # Initialize the class priors.
+    # NOTE: this might be different than the train dataset!
+    if hasattr(test_dataset, 'global_class_priors'):
+        class_probs = np.clip(test_dataset.global_class_priors, 0.00000001, 0.99999)
+    else:
+        class_probs = np.ones(test_dataset.num_classes) * (1. / test_dataset.num_classes)
+    test_dataset.class_probs = class_probs
+    test_dataset.class_probs_prior = class_probs
+
+    e = time.time()
+    t = e - s
+    print("Loading time: %0.2f seconds (%0.2f minutes) (%0.2f hours)" % (t, t / 60., t / 3600.))
+    print()
+
+    print("##############################")
+    print("Initializing Dataset")
+    print()
+    s = time.time()
 
     # Initialize any new workers
     test_dataset.initialize_parameters(avoid_if_finished=True)
 
+    e = time.time()
+    t = e - s
+    print("Initialization time: %0.2f seconds (%0.2f minutes) (%0.2f hours)" % (t, t / 60., t / 3600.))
+    print()
+
+    print("##############################")
+    print("Predicting Image Labels & Risks")
+    print()
+    s = time.time()
+
     # Predict the image labels
-    for image_id, image in test_dataset.images.iteritems():
+    for image in test_dataset.images.itervalues():
       image.predict_true_labels(avoid_if_finished=False)
+
+    e = time.time()
+    t = e - s
+    print("Predition time: %0.2f seconds (%0.2f minutes) (%0.2f hours)" % (t, t / 60., t / 3600.))
+    print()
+
+    print("##############################")
+    print("Saving Predictions")
+    print()
+    s = time.time()
 
     # Save the risks
     image_risks = [(image_id, image.risk) for image_id, image in test_dataset.images.iteritems()]
@@ -61,6 +105,22 @@ def test(model_path, dataset_path, output_dir):
             obs_ids = ','.join([x[0] for x in risk_group])
             print("https://www.inaturalist.org/observations/identify?reviewed=any&quality_grade=needs_id,research&id=%s" % (obs_ids,), file=f)
 
+
+    # Make a csv file that contains the observation url, the risk, and identification count.
+    image_data = [(image_id, image.risk, len(image.z)) for image_id, image in test_dataset.images.iteritems()]
+    image_data.sort(key=lambda x: x[1])
+    image_data.reverse()
+    with open(os.path.join(output_dir, 'observation_data.csv'), 'w') as f:
+        csv_writer = csv.writer(f)
+        csv_writer.writerow(("Observation ID", "Risk", "Number of Identifications", "URL"))
+        for image_id, risk, num_annos in image_data:
+            ob_url = 'https://www.inaturalist.org/observations/%s' % (image_id,)
+            csv_writer.writerow((image_id, risk, num_annos, ob_url))
+
+    e = time.time()
+    t = e - s
+    print("Saving time: %0.2f seconds (%0.2f minutes) (%0.2f hours)" % (t, t / 60., t / 3600.))
+    print()
 
 def parse_args():
 

@@ -7,11 +7,12 @@ import time
 
 import numpy as np
 
-from crowdsourcing.annotations.classification import multiclass_single_binomial as MSB
+from crowdsourcing.annotations.classification import multiclass_single_binomial_nt as MSB
 
 
 ESTIMATE_PRIORS_AUTOMATICALLY = False
 PROB_CORRECT_PRIOR = 0.8
+PROB_CORRECT = 0.8
 POOLED_PRIOR_STRENGTH = 10
 GLOBAL_PRIOR_STRENGTH = 2.5
 GLOBAL_CLASS_PROB_PRIOR_STRENGTH = 5
@@ -22,7 +23,7 @@ PROB_TRUST = 0.8
 
 def train(dataset_path, output_dir, estimate_priors_automatically=False, verification_task=False, dependent_labels=False):
 
-    dataset = MSB.CrowdDatasetMulticlassSingleBinomial(
+    dataset = MSB.CrowdDatasetMulticlass(
         name='inat_single_binomial',
         learn_worker_params=True,
         learn_image_params=False,
@@ -38,6 +39,7 @@ def train(dataset_path, output_dir, estimate_priors_automatically=False, verific
         prob_correct_prior_beta = GLOBAL_PRIOR_STRENGTH,
         prob_correct_prior = PROB_CORRECT_PRIOR,
         prob_correct_beta = POOLED_PRIOR_STRENGTH,
+        prob_correct = PROB_CORRECT,
 
         prob_trust_prior_beta = GLOBAL_TRUST_PRIOR_STRENGTH,
         prob_trust_prior = PROB_TRUST_PRIOR,
@@ -64,15 +66,15 @@ def train(dataset_path, output_dir, estimate_priors_automatically=False, verific
     print("Initializing Dataset")
     print()
     s = time.time()
-    if hasattr(dataset, 'global_class_probs'):
-        class_probs = np.clip(dataset.global_class_probs, 0.00000001, 0.99999)
+    if hasattr(dataset, 'global_class_priors'):
+        class_probs = np.clip(dataset.global_class_priors, 0.00000001, 0.99999)
     else:
         class_probs = np.ones(dataset.num_classes) * (1. / dataset.num_classes)
 
-    dataset.class_probs = {cid : p for cid, p in enumerate(class_probs)}
-    dataset.class_probs_prior = {cid : p for cid, p in enumerate(class_probs)}
+    dataset.class_probs = class_probs
+    dataset.class_probs_prior = class_probs
 
-    dataset.initialize_default_priors()
+    #dataset.initialize_default_priors()
     e = time.time()
     t = e - s
     print("Initialization time: %0.2f seconds (%0.2f minutes) (%0.2f hours)" % (t, t / 60., t / 3600.))
@@ -100,7 +102,8 @@ def train(dataset_path, output_dir, estimate_priors_automatically=False, verific
     print()
 
     # Make a file with the user skills
-    user_skills = [(worker_id, worker.taxonomy.root_node.data['prob_correct']) for worker_id, worker in dataset.workers.iteritems()]
+    #user_skills = [(worker_id, worker.taxonomy.root_node.data['prob_correct']) for worker_id, worker in dataset.workers.iteritems()]
+    user_skills = [(worker_id, worker.prob_correct) for worker_id, worker in dataset.workers.iteritems()]
     user_skills.sort(key=lambda x: x[1])
     user_skills.reverse()
     with open(os.path.join(output_dir, 'user_skill.txt'), 'w') as f:
