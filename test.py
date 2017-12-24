@@ -11,7 +11,7 @@ import numpy as np
 
 from crowdsourcing.annotations.classification import multiclass_single_binomial_nt as MSB
 
-def test(model_path, dataset_path, output_dir):
+def test(model_path, dataset_path, output_dir, verification_task=False):
 
     print("##############################")
     print("Loading Dataset")
@@ -39,6 +39,7 @@ def test(model_path, dataset_path, output_dir):
 
     # Load in the test images and annotations and any new workers
     test_dataset.load(dataset_path, sort_annos=True, overwrite_workers=False)
+    test_dataset.model_worker_trust = verification_task
 
     # Initialize the class priors.
     # NOTE: this might be different than the train dataset!
@@ -107,15 +108,25 @@ def test(model_path, dataset_path, output_dir):
 
 
     # Make a csv file that contains the observation url, the risk, and identification count.
-    image_data = [(image_id, image.risk, len(image.z)) for image_id, image in test_dataset.images.iteritems()]
+    ob_url_str = 'https://www.inaturalist.org/observations/%s'
+
+    if hasattr(test_dataset, 'inat_taxon_id_to_class_label'):
+        class_label_to_inat_taxon_id = {v : k for k, v in test_dataset.inat_taxon_id_to_class_label.iteritems()}
+        header = ["Observation ID", "Risk", "Pred Label", "Number of Identifications", "URL"]
+        image_data = [(image_id, image.risk, class_label_to_inat_taxon_id[image.y.label], len(image.z), ob_url_str % (image_id,))
+                      for image_id, image in test_dataset.images.iteritems()]
+
+    else:
+        header = ["Observation ID", "Risk", "Number of Identifications", "URL"]
+        image_data = [(image_id, image.risk, len(image.z), ob_url_str % (image_id,))
+                      for image_id, image in test_dataset.images.iteritems()]
+
     image_data.sort(key=lambda x: x[1])
     image_data.reverse()
     with open(os.path.join(output_dir, 'observation_data.csv'), 'w') as f:
         csv_writer = csv.writer(f)
-        csv_writer.writerow(("Observation ID", "Risk", "Number of Identifications", "URL"))
-        for image_id, risk, num_annos in image_data:
-            ob_url = 'https://www.inaturalist.org/observations/%s' % (image_id,)
-            csv_writer.writerow((image_id, risk, num_annos, ob_url))
+        csv_writer.writerow(header)
+        csv_writer.writerows(image_data)
 
     e = time.time()
     t = e - s
@@ -138,6 +149,10 @@ def parse_args():
                           help='Path to an output directory to save the observation risks.', type=str,
                           required=True)
 
+    parser.add_argument('--verification_task', dest='verification_task',
+                        help='Model the labels as a verification task.',
+                        required=False, action='store_true', default=False)
+
     args = parser.parse_args()
     return args
 
@@ -148,7 +163,7 @@ def main():
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
 
-    test(args.model_path, args.dataset_path, args.output_dir)
+    test(args.model_path, args.dataset_path, args.output_dir, args.verification_task)
 
 if __name__ == '__main__':
 

@@ -2,6 +2,7 @@ from __future__ import absolute_import, division, print_function
 
 import argparse
 import cProfile
+import csv
 import os
 import time
 
@@ -21,7 +22,7 @@ POOLED_TRUST_STENGTH = 10
 PROB_TRUST_PRIOR = 0.8
 PROB_TRUST = 0.8
 
-def train(dataset_path, output_dir, estimate_priors_automatically=False, verification_task=False, dependent_labels=False):
+def train(dataset_path, output_dir, estimate_priors_automatically=False, verification_task=False):
 
     dataset = MSB.CrowdDatasetMulticlass(
         name='inat_single_binomial',
@@ -47,7 +48,6 @@ def train(dataset_path, output_dir, estimate_priors_automatically=False, verific
         prob_trust=PROB_TRUST,
 
         model_worker_trust=verification_task,
-        recursive_trust=dependent_labels,
 
         debug=2
     )
@@ -101,14 +101,19 @@ def train(dataset_path, output_dir, estimate_priors_automatically=False, verific
     print("Saving time: %0.2f seconds (%0.2f minutes) (%0.2f hours)" % (t, t / 60., t / 3600.))
     print()
 
-    # Make a file with the user skills
-    #user_skills = [(worker_id, worker.taxonomy.root_node.data['prob_correct']) for worker_id, worker in dataset.workers.iteritems()]
-    user_skills = [(worker_id, worker.prob_correct) for worker_id, worker in dataset.workers.iteritems()]
+    # Make a csv file with the user parameter estimates
+    if verification_task:
+        header = ['User ID', 'Prob Correct', 'Prob Trust Others']
+        user_skills = [(worker_id, worker.prob_correct, worker.prob_trust) for worker_id, worker in dataset.workers.iteritems()]
+    else:
+        header = ['User ID', 'Prob Correct']
+        user_skills = [(worker_id, worker.prob_correct) for worker_id, worker in dataset.workers.iteritems()]
     user_skills.sort(key=lambda x: x[1])
     user_skills.reverse()
-    with open(os.path.join(output_dir, 'user_skill.txt'), 'w') as f:
-        for worker_id, skill in user_skills:
-            print("%s\t%0.5f" % (worker_id, skill), file=f)
+    with open(os.path.join(output_dir, 'user_skills.csv'), 'w') as f:
+        csv_writer = csv.writer(f)
+        csv_writer.writerow(header)
+        csv_writer.writerows(user_skills)
 
 def parse_args():
 
@@ -130,10 +135,6 @@ def parse_args():
                         help='Model the labels as a verification task.',
                         required=False, action='store_true', default=False)
 
-    parser.add_argument('--dependent_labels', dest='dependent_labels',
-                        help='Model the dependence in the labels recursively, as opposed to independently. Only applies with `--verification_task`.',
-                        required=False, action='store_true', default=False)
-
     parser.add_argument('--profile', dest='profile',
                         help='Run the code through cProfile',
                         required=False, action='store_true', default=False)
@@ -152,16 +153,14 @@ def main():
         pr.enable()
         train(args.dataset_path, args.output_dir,
             estimate_priors_automatically=args.estimate_priors_automatically,
-            verification_task=args.verification_task,
-            dependent_labels=args.dependent_labels
+            verification_task=args.verification_task
         )
         pr.disable()
         pr.print_stats(sort='time')
     else:
         train(args.dataset_path, args.output_dir,
             estimate_priors_automatically=args.estimate_priors_automatically,
-            verification_task=args.verification_task,
-            dependent_labels=args.dependent_labels
+            verification_task=args.verification_task
         )
 
 if __name__ == '__main__':
