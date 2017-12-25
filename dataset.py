@@ -230,6 +230,14 @@ class iNaturalistDataset():
         self.identifications = idens_to_keep
         self.iden_id_to_iden = {iden['id'] : iden for iden in self.identifications}
 
+    def keep_current_identifications(self):
+        """ Keep only the current identifications.
+        """
+
+        idens_to_keep = [iden for iden in self.identifications if iden['current'] == 't']
+        self.identifications = idens_to_keep
+        self.iden_id_to_iden = {iden['id'] : iden for iden in self.identifications}
+
     def remove_obs_with_no_photos(self):
         """ Remove observations that don't have any photos.
         """
@@ -413,7 +421,7 @@ def main():
     inat.set_rank_level_as_leaf_level(leaf_rank_level=10)
     inat.create_flat_taxonomy(leaf_rank_level=10)
     inat.remove_non_active_taxa()
-    inat.keep_one_identification_per_user_per_observation(keep_index=-1)
+    inat.keep_current_identifications()
     inat.remove_obs_with_no_photos()
     inat.enforce_min_identifications(min_identifications=1)
     taxa_priors = inat.estimate_taxa_priors()
