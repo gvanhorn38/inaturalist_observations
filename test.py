@@ -128,6 +128,36 @@ def test(model_path, dataset_path, output_dir, verification_task=False):
         csv_writer.writerow(header)
         csv_writer.writerows(image_data)
 
+
+    # Make a file that prints out the sequence of events for each observations.
+    if hasattr(test_dataset, 'inat_taxon_id_to_class_label'):
+        class_label_to_inat_taxon_id = {v : k for k, v in test_dataset.inat_taxon_id_to_class_label.iteritems()}
+
+        with open(os.path.join(output_dir, 'observation_seq_events.txt'), 'w') as f:
+            print("[Image ID] => (Worker ID, Prob Correct, <Prob Trust>, Taxon ID, Prior Taxon Prob) => ...  ==> [Predicted Taxon ID, Risk]", file=f)
+            # use the same order as the csv file
+            for i in range(len(image_data)):
+                image_id = image_data[i][0]
+                image = test_dataset.images[image_id]
+
+                seq_str = "[%s]" % (image_id,)
+                for anno in image.z.values():
+                    worker = anno.worker
+                    taxon_id = class_label_to_inat_taxon_id[anno.label]
+                    taxon_prior = test_dataset.class_probs[anno.label]
+                    # => (worker_id, label, prob_correct, prob_trust)
+                    if verification_task:
+                        seq_str += " => (%s, %0.3f, %0.3f, %s, %0.4f)" % (worker.id, worker.prob_correct, worker.prob_trust, taxon_id, taxon_prior)
+                    else:
+                        seq_str += " => (%s, %s, %0.3f)" % (worker.id, worker.prob_correct, taxon_id, taxon_prior)
+
+                # ==> (predicted label, risk)
+                pred_taxon_id = class_label_to_inat_taxon_id[image.y.label]
+                seq_str += " ==> [%s, %0.3f]" % (pred_taxon_id, image.risk)
+
+                print(seq_str, file=f)
+
+
     e = time.time()
     t = e - s
     print("Saving time: %0.2f seconds (%0.2f minutes) (%0.2f hours)" % (t, t / 60., t / 3600.))
