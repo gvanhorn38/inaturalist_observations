@@ -5,11 +5,23 @@ import cProfile
 import csv
 import json
 import os
+import sys
 import time
 
 import numpy as np
 
 from crowdsourcing.annotations.classification import multiclass_single_binomial_nt as MSB
+
+# https://gist.github.com/vladignatyev/06860ec2040cb497f0f3
+def progress_bar(count, total, status=''):
+    bar_len = 60
+    filled_len = int(round(bar_len * count / float(total)))
+
+    percentage_complete = round(100.0 * count / float(total), ndigits=1)
+    bar = '=' * filled_len + '-' * (bar_len - filled_len)
+
+    sys.stdout.write('[%s] %s%s ...%s\r' % (bar, percentage_complete, '%', status))
+    sys.stdout.flush()
 
 def test(model_path, dataset_path, output_dir, verification_task=False):
 
@@ -74,9 +86,15 @@ def test(model_path, dataset_path, output_dir, verification_task=False):
     s = time.time()
 
     # Predict the image labels
+    total_images = len(test_dataset.images)
+    i = 0
+    progress_bar(i, total_images)
     for image in test_dataset.images.itervalues():
-      image.predict_true_labels(avoid_if_finished=False)
-
+        image.predict_true_labels(avoid_if_finished=False)
+        i += 1
+        if i % 1000 == 0:
+            progress_bar(i, total_images, "%d images finished" % (i,))
+    print()
     e = time.time()
     t = e - s
     print("Predition time: %0.2f seconds (%0.2f minutes) (%0.2f hours)" % (t, t / 60., t / 3600.))

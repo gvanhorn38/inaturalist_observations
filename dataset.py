@@ -44,6 +44,7 @@ from collections import Counter
 import datetime
 import json
 import os
+import random
 
 class iNaturalistDataset():
 
@@ -272,6 +273,25 @@ class iNaturalistDataset():
         self.identifications = idens_to_keep
         self.iden_id_to_iden = {iden['id'] : iden for iden in self.identifications}
 
+    def enforce_max_observations(self, max_observations=None):
+        if max_observations is None:
+            return
+
+        if max_observations >= len(self.observations):
+            return
+
+        # Randomly pick observations to keep
+        ob_ids = [ob['id'] for ob in self.observations]
+        ob_ids_to_keep = random.sample(ob_ids, max_observations)
+        obs_to_keep = [ob for ob in self.observations if ob['id'] in ob_ids_to_keep]
+        self.observations = obs_to_keep
+        self.ob_id_to_ob = {ob['id'] : ob for ob in self.observations}
+
+        idens_to_keep = [iden for iden in self.identifications if iden['observation_id'] in self.ob_id_to_ob]
+        self.identifications = idens_to_keep
+        self.iden_id_to_iden = {iden['id'] : iden for iden in self.identifications}
+
+
     def estimate_taxa_priors(self):
         """ Use the current identifications and the corresponding `community_taxon_id`
         from the observations to estimate taxa priors.
@@ -367,8 +387,13 @@ def parse_args():
                         required=True)
 
     parser.add_argument('--output_dir', dest='output_dir',
-                          help='Path to an output directory to save the datasets.', type=str,
-                          required=True)
+                        help='Path to an output directory to save the datasets.', type=str,
+                        required=True)
+
+    parser.add_argument('--max_obs', dest='max_observations',
+                        help='Maximum number of observations to include in the training and testing datasets.', type=int,
+                        required=False, default=None)
+
 
     args = parser.parse_args()
     return args
@@ -403,6 +428,7 @@ def main():
     inat.keep_one_identification_per_user_per_observation(keep_index=0)
     inat.remove_obs_with_no_photos()
     inat.enforce_min_identifications(min_identifications=2)
+    inat.enforce_max_observations(args.max_observations)
     taxa_priors = inat.estimate_taxa_priors()
     train_dataset = inat.create_dataset(taxa_priors)
 
@@ -424,6 +450,7 @@ def main():
     inat.keep_current_identifications()
     inat.remove_obs_with_no_photos()
     inat.enforce_min_identifications(min_identifications=1)
+    inat.enforce_max_observations(args.max_observations)
     taxa_priors = inat.estimate_taxa_priors()
     test_dataset = inat.create_dataset(taxa_priors)
 
