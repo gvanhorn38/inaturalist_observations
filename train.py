@@ -22,7 +22,7 @@ POOLED_TRUST_STENGTH = 10
 PROB_TRUST_PRIOR = 0.8
 PROB_TRUST = 0.8
 
-def train(dataset_path, output_dir, estimate_priors_automatically=False, verification_task=False):
+def train(dataset_path, output_dir, estimate_priors_automatically=False, verification_task=False, combined_labels_path=None):
 
     dataset = MSB.CrowdDatasetMulticlass(
         name='inat_single_binomial',
@@ -56,7 +56,29 @@ def train(dataset_path, output_dir, estimate_priors_automatically=False, verific
     print("Loading Dataset")
     print()
     s = time.time()
-    dataset.load(dataset_path, sort_annos=verification_task)
+    dataset.load(dataset_path, sort_annos=verification_task, )
+
+    # Load in combined labels that were predicted previously.
+    if combined_labels_path is not None:
+        print("Loading combined labels")
+        dataset.load(combined_labels_path,
+                     overwrite_workers=False,
+                     load_dataset=False,
+                     load_workers=False,
+                     load_images=False,
+                     load_annos=False,
+                     load_gt_annos=False,
+                     load_combined_labels=True)
+
+        # Mark the images as finished.
+        nf = 0
+        for image in dataset.images.itervalues():
+            if image.y is not None:
+                image.finished = True
+                nf += 1
+        print("Loaded labels for %d / %d images" % (nf, len(dataset.images)))
+        print()
+
     e = time.time()
     t = e - s
     print("Loading time: %0.2f seconds (%0.2f minutes) (%0.2f hours)" % (t, t / 60., t / 3600.))
@@ -84,7 +106,7 @@ def train(dataset_path, output_dir, estimate_priors_automatically=False, verific
     print("Estimating Parameters")
     print()
     s = time.time()
-    dataset.estimate_parameters(avoid_if_finished=False)
+    dataset.estimate_parameters(avoid_if_finished=True)
     e = time.time()
     t = e - s
     print("Estimation time: %0.2f seconds (%0.2f minutes) (%0.2f hours)" % (t, t / 60., t / 3600.))
@@ -135,6 +157,10 @@ def parse_args():
                         help='Model the labels as a verification task.',
                         required=False, action='store_true', default=False)
 
+    parser.add_argument('--combined_labels', dest='combined_labels_path',
+                        help='Path to a file that contains predicted labels for these images. This will mark the images as finished.',
+                        type=str, required=False, default=None)
+
     parser.add_argument('--profile', dest='profile',
                         help='Run the code through cProfile',
                         required=False, action='store_true', default=False)
@@ -160,7 +186,8 @@ def main():
     else:
         train(args.dataset_path, args.output_dir,
             estimate_priors_automatically=args.estimate_priors_automatically,
-            verification_task=args.verification_task
+            verification_task=args.verification_task,
+            combined_labels_path=args.combined_labels_path
         )
 
 if __name__ == '__main__':

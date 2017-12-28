@@ -48,8 +48,8 @@ import random
 
 class iNaturalistDataset():
 
-    def __init__(self, observations, observation_photos, identifications,
-                 taxa, users):
+    def __init__(self, observations=None, observation_photos=None,
+                 identifications=None, taxa=None, users=None):
 
         self.observations = observations
         self.observation_photos = observation_photos
@@ -193,6 +193,18 @@ class iNaturalistDataset():
         self.identifications = idens_to_keep
         self.iden_id_to_iden = {iden['id'] : iden for iden in self.identifications}
 
+    def keep_specific_observations(self, observation_ids_to_keep):
+        """ Keep only the specified observations.
+        """
+        observation_ids_to_keep = set(observation_ids_to_keep)
+        obs_to_keep = [ob for ob in self.observations if ob['id'] in observation_ids_to_keep]
+        self.observations = obs_to_keep
+        self.ob_id_to_ob = {ob['id'] : ob for ob in self.observations}
+
+        idens_to_keep = [iden for iden in self.identifications if iden['observation_id'] in self.ob_id_to_ob]
+        self.identifications = idens_to_keep
+        self.iden_id_to_iden = {iden['id'] : iden for iden in self.identifications}
+
     def keep_one_identification_per_user_per_observation(self, keep_index=0):
         """ Select one identification per user per observation.
         keep_index = 0 for the first identification, -1 for the last identification.
@@ -292,7 +304,7 @@ class iNaturalistDataset():
         self.iden_id_to_iden = {iden['id'] : iden for iden in self.identifications}
 
 
-    def estimate_taxa_priors(self):
+    def estimate_taxa_priors(self, include_taxa_ids=None):
         """ Use the current identifications and the corresponding `community_taxon_id`
         from the observations to estimate taxa priors.
 
@@ -301,6 +313,8 @@ class iNaturalistDataset():
         """
 
         taxon_id_working_set = set([iden['taxon_id'] for iden in self.identifications])
+        if include_taxa_ids is not None:
+            taxon_id_working_set.update(include_taxa_ids)
         community_taxon_ids = []
         for iden in self.identifications:
             ob = self.ob_id_to_ob[iden['observation_id']]
@@ -314,6 +328,7 @@ class iNaturalistDataset():
         for taxon_id in taxon_id_working_set:
             if taxon_id not in taxon_counts:
                 taxon_counts[taxon_id] = 1
+
 
         total = float(sum(taxon_counts.values()))
         return {taxon_id : c / total for taxon_id, c in taxon_counts.items()}
@@ -405,6 +420,9 @@ def main():
     archive_dir = args.archive_dir
     output_dir = args.output_dir
 
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
     with open(os.path.join(archive_dir, 'observations.json')) as f:
         observations = json.load(f)
 
@@ -420,29 +438,47 @@ def main():
     with open(os.path.join(archive_dir, 'users.json')) as f:
         users = json.load(f)
 
-    # Build the training dataset
-    inat = iNaturalistDataset(observations, observation_photos, identifications, taxa, users)
-    inat.set_rank_level_as_leaf_level(leaf_rank_level=10)
-    inat.create_flat_taxonomy(leaf_rank_level=10)
-    inat.remove_non_active_taxa()
-    inat.keep_one_identification_per_user_per_observation(keep_index=0)
-    inat.remove_obs_with_no_photos()
-    inat.enforce_min_identifications(min_identifications=2)
-    inat.enforce_max_observations(args.max_observations)
-    taxa_priors = inat.estimate_taxa_priors()
-    train_dataset = inat.create_dataset(taxa_priors)
+    # Build the observation label prediction dataset
+    ob_inat = iNaturalistDataset(observations, observation_photos, identifications, taxa, users)
+    ob_inat.set_rank_level_as_leaf_level(leaf_rank_level=10)
+    ob_inat.create_flat_taxonomy(leaf_rank_level=10)
+    ob_inat.remove_non_active_taxa()
+    ob_inat.keep_current_identifications()
+    ob_inat.remove_obs_with_no_photos()
+    ob_inat.enforce_min_identifications(min_identifications=2)
+    ob_inat.enforce_max_observations(args.max_observations)
+    ob_ids = [ob['id'] for ob in ob_inat.observations] # Make sure the worker dataset has the same obs
 
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
+    # Build the worker skill prediction dataset
+    worker_inat = iNaturalistDataset(observations, observation_photos, identifications, taxa, users)
+    worker_inat.set_rank_level_as_leaf_level(leaf_rank_level=10)
+    worker_inat.create_flat_taxonomy(leaf_rank_level=10)
+    worker_inat.remove_non_active_taxa()
+    worker_inat.keep_specific_observations(ob_ids)
+    worker_inat.keep_one_identification_per_user_per_observation(keep_index=0)
+    worker_inat.remove_obs_with_no_photos()
+    worker_inat.enforce_min_identifications(min_identifications=2)
+    worker_inat.enforce_max_observations(args.max_observations)
 
-    train_output_dir = os.path.join(output_dir, 'train')
-    if not os.path.exists(train_output_dir):
-        os.makedirs(train_output_dir)
+    # We want to reconcile the taxa priors between the image label and worker skill dataset
+    # This way the labels will match up
+    taxon_id_working_set = set([iden['taxon_id'] for iden in ob_inat.identifications + worker_inat.identifications])
 
-    with open(os.path.join(train_output_dir, 'dataset.json'), 'w') as f:
-        json.dump(train_dataset, f)
+    taxa_priors = ob_inat.estimate_taxa_priors(include_taxa_ids=taxon_id_working_set)
+    ob_label_pred_dataset = ob_inat.create_dataset(taxa_priors)
 
-    # Build the testing dataset
+    label_pred_output_path = os.path.join(output_dir, 'observation_label_pred_dataset.json')
+    with open(label_pred_output_path, 'w') as f:
+        json.dump(ob_label_pred_dataset, f)
+
+    #worker_skill_taxa_priors = worker_inat.estimate_taxa_priors(include_taxa_ids=taxon_id_working_set)
+    worker_skill_pred_dataset = worker_inat.create_dataset(taxa_priors)
+
+    worker_skill_pred_output_path = os.path.join(output_dir, 'worker_skill_pred_dataset.json')
+    with open(worker_skill_pred_output_path, 'w') as f:
+        json.dump(worker_skill_pred_dataset, f)
+
+    # Build a "testing" dataset.
     inat = iNaturalistDataset(observations, observation_photos, identifications, taxa, users)
     inat.set_rank_level_as_leaf_level(leaf_rank_level=10)
     inat.create_flat_taxonomy(leaf_rank_level=10)
@@ -454,11 +490,8 @@ def main():
     taxa_priors = inat.estimate_taxa_priors()
     test_dataset = inat.create_dataset(taxa_priors)
 
-    test_output_dir = os.path.join(output_dir, 'test')
-    if not os.path.exists(test_output_dir):
-        os.makedirs(test_output_dir)
-
-    with open(os.path.join(test_output_dir, 'dataset.json'), 'w') as f:
+    test_output_path = os.path.join(output_dir, 'test_dataset.json')
+    with open(test_output_path, 'w') as f:
         json.dump(test_dataset, f)
 
 if __name__ == '__main__':
