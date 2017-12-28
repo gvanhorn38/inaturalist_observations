@@ -13,7 +13,7 @@ from crowdsourcing.annotations.classification import multiclass_single_binomial_
 
 def parse_args():
 
-    parser = argparse.ArgumentParser(description='Test the person classifier')
+    parser = argparse.ArgumentParser(description='Interactively test the person classifier')
 
     parser.add_argument('--model_path', dest='model_path',
                         help='Path to a trained model.', type=str,
@@ -78,7 +78,7 @@ def main():
 
             if worker_id not in model.workers:
                 print("Creating a new worker")
-                worker = model._CrowdWorkerClass_(worker_id, test_dataset)
+                worker = model._CrowdWorkerClass_(worker_id, model)
                 worker.prob_correct = model.prob_correct
                 worker.prob_trust = model.prob_trust
                 model.workers[worker_id] = worker
