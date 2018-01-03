@@ -90,6 +90,14 @@ class iNaturalistDataset():
             assert iden['taxon_id'] in self.taxon_id_to_taxon
             assert iden['observation_id'] in self.ob_id_to_ob
 
+        # Lets make sure that identification ids are unique
+        iden_ids = [iden['id'] for iden in self.identifications]
+        assert len(iden_ids) == len(set(iden_ids))
+
+        # Lets make sure that the observation ids are unique
+        obs_ids = [ob['id'] for ob in self.observations]
+        assert len(obs_ids) == len(set(obs_ids))
+
 
     def set_rank_level_as_leaf_level(self, leaf_rank_level=10):
         """ Set a specific rank level to be the leaf level of the taxonomy.
@@ -250,6 +258,16 @@ class iNaturalistDataset():
         idens_to_keep = [iden for iden in self.identifications if iden['current'] == 't']
         self.identifications = idens_to_keep
         self.iden_id_to_iden = {iden['id'] : iden for iden in self.identifications}
+
+        # Lets make sure that each identification for each observation is
+        # coming from a unique worker.
+        ob_id_to_idens = {ob['id'] : [] for ob in self.observations}
+        for iden in self.identifications:
+            ob_id_to_idens[iden['observation_id']].append(iden)
+        for ob_id, idens in ob_id_to_idens.iteritems():
+            if len(set([iden['user_id'] for iden in idens])) != len(idens):
+                print("ERROR: observation %s has multiple identifications from the same user" % (ob_id,))
+                assert False
 
     def remove_obs_with_no_photos(self):
         """ Remove observations that don't have any photos.
