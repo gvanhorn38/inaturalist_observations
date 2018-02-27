@@ -8,10 +8,9 @@ import time
 
 import numpy as np
 
-from crowdsourcing.annotations.classification import multiclass_single_binomial_nt as MSB
+from crowdsourcing.annotations.classification import multiclass_single_binomial_tax as MSB
 
 
-ESTIMATE_PRIORS_AUTOMATICALLY = False
 PROB_CORRECT_PRIOR = 0.8
 PROB_CORRECT = 0.8 # 0.1 #
 POOLED_PRIOR_STRENGTH = 10
@@ -24,7 +23,7 @@ PROB_TRUST = 0.8 # 0.999999 #
 
 def train(dataset_path, output_dir, estimate_priors_automatically=False, verification_task=False, combined_labels_path=None):
 
-    dataset = MSB.CrowdDatasetMulticlass(
+    dataset = MSB.CrowdDatasetMulticlassSingleBinomial(
         name='inat_single_binomial',
         learn_worker_params=True,
         learn_image_params=False,
@@ -89,14 +88,18 @@ def train(dataset_path, output_dir, estimate_priors_automatically=False, verific
     print()
     s = time.time()
     if hasattr(dataset, 'global_class_priors'):
-        class_probs = np.clip(dataset.global_class_priors, 0.00000001, 0.99999)
+        #class_probs = np.clip(dataset.global_class_priors, 0.00000001, 0.99999)
+        class_probs = dataset.global_class_priors
     else:
+        assert False
         class_probs = np.ones(dataset.num_classes) * (1. / dataset.num_classes)
 
     dataset.class_probs = class_probs
     dataset.class_probs_prior = class_probs
 
-    #dataset.initialize_default_priors()
+    dataset.initialize_default_priors()
+    dataset.initialize_data_structures()
+
     e = time.time()
     t = e - s
     print("Initialization time: %0.2f seconds (%0.2f minutes) (%0.2f hours)" % (t, t / 60., t / 3600.))
@@ -123,19 +126,20 @@ def train(dataset_path, output_dir, estimate_priors_automatically=False, verific
     print("Saving time: %0.2f seconds (%0.2f minutes) (%0.2f hours)" % (t, t / 60., t / 3600.))
     print()
 
+    # Not sure what we want to do here...
     # Make a csv file with the user parameter estimates
-    if verification_task:
-        header = ['User ID', 'Prob Correct', 'Prob Trust Others']
-        user_skills = [(worker_id, worker.prob_correct, worker.prob_trust) for worker_id, worker in dataset.workers.iteritems()]
-    else:
-        header = ['User ID', 'Prob Correct']
-        user_skills = [(worker_id, worker.prob_correct) for worker_id, worker in dataset.workers.iteritems()]
-    user_skills.sort(key=lambda x: x[1])
-    user_skills.reverse()
-    with open(os.path.join(output_dir, 'user_skills.csv'), 'w') as f:
-        csv_writer = csv.writer(f)
-        csv_writer.writerow(header)
-        csv_writer.writerows(user_skills)
+    # if verification_task:
+    #     header = ['User ID', 'Prob Correct', 'Prob Trust Others']
+    #     user_skills = [(worker_id, worker.prob_correct, worker.prob_trust) for worker_id, worker in dataset.workers.iteritems()]
+    # else:
+    #     header = ['User ID', 'Prob Correct']
+    #     user_skills = [(worker_id, worker.prob_correct) for worker_id, worker in dataset.workers.iteritems()]
+    # user_skills.sort(key=lambda x: x[1])
+    # user_skills.reverse()
+    # with open(os.path.join(output_dir, 'user_skills.csv'), 'w') as f:
+    #     csv_writer = csv.writer(f)
+    #     csv_writer.writerow(header)
+    #     csv_writer.writerows(user_skills)
 
 def parse_args():
 
