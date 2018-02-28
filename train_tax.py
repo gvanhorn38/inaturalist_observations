@@ -21,7 +21,10 @@ POOLED_TRUST_STENGTH = 10
 PROB_TRUST_PRIOR = 0.8
 PROB_TRUST = 0.8 # 0.999999 #
 
-def train(dataset_path, output_dir, estimate_priors_automatically=False, verification_task=False, combined_labels_path=None):
+def train(dataset_path, output_dir, estimate_priors_automatically=False, verification_task=False, combined_labels_path=None, profile=False):
+
+    if profile:
+        pr = cProfile.Profile()
 
     dataset = MSB.CrowdDatasetMulticlassSingleBinomial(
         name='inat_single_binomial',
@@ -108,9 +111,13 @@ def train(dataset_path, output_dir, estimate_priors_automatically=False, verific
     print("##############################")
     print("Estimating Parameters")
     print()
+    if profile:
+        pr.enable()
     s = time.time()
     dataset.estimate_parameters(avoid_if_finished=True)
     e = time.time()
+    if profile:
+        pr.disable()
     t = e - s
     print("Estimation time: %0.2f seconds (%0.2f minutes) (%0.2f hours)" % (t, t / 60., t / 3600.))
     print()
@@ -140,6 +147,11 @@ def train(dataset_path, output_dir, estimate_priors_automatically=False, verific
     #     csv_writer = csv.writer(f)
     #     csv_writer.writerow(header)
     #     csv_writer.writerows(user_skills)
+
+    if profile:
+        print("Parameter Estimation Profile")
+        print()
+        pr.print_stats(sort='time')
 
 def parse_args():
 
@@ -178,21 +190,13 @@ def main():
 
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
-    if args.profile:
-        pr = cProfile.Profile()
-        pr.enable()
-        train(args.dataset_path, args.output_dir,
-            estimate_priors_automatically=args.estimate_priors_automatically,
-            verification_task=args.verification_task
-        )
-        pr.disable()
-        pr.print_stats(sort='time')
-    else:
-        train(args.dataset_path, args.output_dir,
-            estimate_priors_automatically=args.estimate_priors_automatically,
-            verification_task=args.verification_task,
-            combined_labels_path=args.combined_labels_path
-        )
+
+    train(args.dataset_path, args.output_dir,
+        estimate_priors_automatically=args.estimate_priors_automatically,
+        verification_task=args.verification_task,
+        combined_labels_path=args.combined_labels_path,
+        profile=args.profile
+    )
 
 if __name__ == '__main__':
 
