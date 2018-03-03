@@ -8,7 +8,7 @@ import time
 
 import numpy as np
 
-from crowdsourcing.annotations.classification import multiclass_single_binomial_tax as MSB
+from crowdsourcing.annotations.classification import multiclass_single_binomial_tax_c as MSB
 
 
 PROB_CORRECT_PRIOR = 0.8
