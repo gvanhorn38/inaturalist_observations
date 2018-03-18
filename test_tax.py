@@ -53,6 +53,16 @@ def test(model_path, dataset_path, output_dir, verification_task=False):
     test_dataset.load(dataset_path, sort_annos=True, overwrite_workers=False)
     test_dataset.model_worker_trust = verification_task
 
+    e = time.time()
+    t = e - s
+    print("Loading time: %0.2f seconds (%0.2f minutes) (%0.2f hours)" % (t, t / 60., t / 3600.))
+    print()
+
+    print("##############################")
+    print("Initializing Dataset")
+    print()
+    s = time.time()
+
     # Initialize the class priors.
     # NOTE: this might be different than the train dataset!
     if hasattr(test_dataset, 'global_class_priors'):
@@ -68,15 +78,6 @@ def test(model_path, dataset_path, output_dir, verification_task=False):
     test_dataset.initialize_default_priors()
     test_dataset.initialize_data_structures()
 
-    e = time.time()
-    t = e - s
-    print("Loading time: %0.2f seconds (%0.2f minutes) (%0.2f hours)" % (t, t / 60., t / 3600.))
-    print()
-
-    print("##############################")
-    print("Initializing Dataset")
-    print()
-    s = time.time()
 
     # Initialize any new workers
     test_dataset.initialize_parameters(avoid_if_finished=True)
