@@ -92,12 +92,18 @@ def test(model_path, dataset_path, output_dir, verification_task=False):
     print()
     s = time.time()
 
-    # Predict the image labels
     total_images = len(test_dataset.images)
+    node_probs_per_image = np.empty((total_images, len(test_dataset.taxonomy.nodes)), dtype=np.float32)
+    node_probs_image_ids = []
+
+    # Predict the image labels
+
     i = 0
     progress_bar(i, total_images)
     for image in test_dataset.images.itervalues():
         image.predict_true_labels(avoid_if_finished=False)
+        node_probs_per_image[i] = image.compute_probability_of_each_node()
+        node_probs_image_ids.append(image.id)
         i += 1
         if i % 1000 == 0:
             progress_bar(i, total_images, "%d images finished" % (i,))
@@ -111,6 +117,14 @@ def test(model_path, dataset_path, output_dir, verification_task=False):
     print("Saving Predictions")
     print()
     s = time.time()
+
+    # Save the node probs
+    node_ids = [node.key for node in test_dataset.taxonomy.breadth_first_traversal()]
+    np.savez(os.path.join(output_dir, 'observation_node_probs.npz'),
+        node_probs=node_probs_per_image,
+        image_ids=np.array(node_probs_image_ids),
+        node_ids=np.array(node_ids)
+    )
 
     # Save the risks
     image_risks = [(image_id, image.risk) for image_id, image in test_dataset.images.iteritems()]
