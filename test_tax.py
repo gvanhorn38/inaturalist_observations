@@ -101,8 +101,8 @@ def test(model_path, dataset_path, output_dir, verification_task=False):
     i = 0
     progress_bar(i, total_images)
     for image in test_dataset.images.itervalues():
-        image.predict_true_labels(avoid_if_finished=False)
-        node_probs_per_image[i] = image.compute_probability_of_each_node()
+        class_log_probs = image.predict_true_labels(avoid_if_finished=False)
+        node_probs_per_image[i] = image.compute_probability_of_each_node(class_log_probs)
         node_probs_image_ids.append(image.id)
         i += 1
         if i % 1000 == 0:
