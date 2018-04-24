@@ -9,7 +9,7 @@ import time
 
 import numpy as np
 
-from crowdsourcing.annotations.classification import multiclass_single_binomial_tax_c as MSB
+from crowdsourcing.annotations.classification import multiclass_single_binomial as MSB
 
 # https://gist.github.com/vladignatyev/06860ec2040cb497f0f3
 def progress_bar(count, total, status=''):
