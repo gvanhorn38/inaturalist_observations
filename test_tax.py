@@ -169,32 +169,48 @@ def test(model_path, dataset_path, output_dir, verification_task=False):
 
 
     # Make a file that prints out the sequence of events for each observations.
-    # if hasattr(test_dataset, 'inat_taxon_id_to_class_label'):
-    #     class_label_to_inat_taxon_id = {v : k for k, v in test_dataset.inat_taxon_id_to_class_label.iteritems()}
+    if hasattr(test_dataset, 'inat_taxon_id_to_class_label'):
 
-    #     with open(os.path.join(output_dir, 'observation_seq_events.txt'), 'w') as f:
-    #         print("[Image ID] => (Worker ID, Prob Correct, <Prob Trust>, Taxon ID, Prior Taxon Prob) => ...  ==> [Predicted Taxon ID, Risk]", file=f)
-    #         # use the same order as the csv file
-    #         for i in range(len(image_data)):
-    #             image_id = image_data[i][0]
-    #             image = test_dataset.images[image_id]
+        class_label_to_inat_taxon_id = {v : k for k, v in test_dataset.inat_taxon_id_to_class_label.iteritems()}
+        integer_id_to_inat_taxon_id = {k : class_label_to_inat_taxon_id[v] for k, v in test_dataset.integer_id_to_orig_node_key.items()}
 
-    #             seq_str = "[%s]" % (image_id,)
-    #             for anno in image.z.values():
-    #                 worker = anno.worker
-    #                 taxon_id = class_label_to_inat_taxon_id[anno.label]
-    #                 taxon_prior = test_dataset.class_probs[anno.label]
-    #                 # => (worker_id, label, prob_correct, prob_trust)
-    #                 if verification_task:
-    #                     seq_str += " => (%s, %0.3f, %0.3f, %s, %0.4f)" % (worker.id, worker.prob_correct, worker.prob_trust, taxon_id, taxon_prior)
-    #                 else:
-    #                     seq_str += " => (%s, %s, %0.3f)" % (worker.id, worker.prob_correct, taxon_id, taxon_prior)
+        with open(os.path.join(output_dir, 'observation_seq_events.txt'), 'w') as f:
+            print("[Image ID] => (Worker ID, <Prob Trust>, Skill Traversal) => ...  ==> [Predicted Taxon ID, Risk]", file=f)
+            # use the same order as the csv file
+            for i in range(len(image_data)):
+                image_id = image_data[i][0]
+                image = test_dataset.images[image_id]
 
-    #             # ==> (predicted label, risk)
-    #             pred_taxon_id = class_label_to_inat_taxon_id[image.y.label]
-    #             seq_str += " ==> [%s, %0.3f]" % (pred_taxon_id, image.risk)
+                seq_str = "Image [%s]" % (image_id,)
+                for anno in image.z.values():
+                    worker = anno.worker
+                    taxon_id = class_label_to_inat_taxon_id[anno.label]
 
-    #             print(seq_str, file=f)
+                    # worker skill str
+                    worker_skill_traversal_str = "R"
+                    z_integer_id = test_dataset.orig_node_key_to_integer_id[anno.label]
+                    z_node_list = test_dataset.root_to_node_path_list[z_integer_id]
+                    for child_node_index in range(1, len(z_node_list)):
+                        z_parent_node = z_node_list[child_node_index - 1]
+                        skill_vector_index = test_dataset.internal_node_integer_id_to_skill_vector_index[z_parent_node]
+                        skill = worker.skill_vector[skill_vector_index]
+
+                        inat_taxon_id = integer_id_to_inat_taxon_id[z_node_list[child_node_index]]
+                        taxon_prior = test_dataset.node_priors[z_node_list[child_node_index]]
+                        node_is_leaf = test_dataset.taxonomy.nodes[test_dataset.integer_id_to_orig_node_key[z_node_list[child_node_index]]].is_leaf
+                        worker_skill_traversal_str += "->(n: %s (%s), s: %0.3f, p: %0.3f)" % (inat_taxon_id, "L" if node_is_leaf else "I", skill, taxon_prior)
+
+                    # => (worker_id, label, prob_correct, prob_trust)
+                    if verification_task:
+                        seq_str += "\n\t Worker %s (t %0.3f) => %s" % (worker.id, worker.prob_trust, worker_skill_traversal_str)
+                    else:
+                        seq_str += "\n\t Worker %s => %s" % (worker.id, worker_skill_traversal_str)
+
+                # ==> (predicted label, risk)
+                pred_taxon_id = class_label_to_inat_taxon_id[image.y.label]
+                seq_str += "\nPrediction ==> [%s, %0.3f]\n" % (pred_taxon_id, image.risk)
+
+                print(seq_str, file=f)
 
 
     e = time.time()
