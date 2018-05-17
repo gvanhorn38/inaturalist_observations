@@ -103,6 +103,10 @@ def test(model_path, dataset_path, output_dir, verification_task=False):
     for image in test_dataset.images.itervalues():
         class_log_probs = image.predict_true_labels(avoid_if_finished=False)
         node_probs_per_image[i] = image.compute_probability_of_each_node(class_log_probs)
+
+        if not np.isclose(node_probs_per_image[i][0], 1):
+            print("ERROR: Root probability not close to 1: %s (%0.5f)" % (image.id, node_probs_per_image[i][0]))
+
         node_probs_image_ids.append(image.id)
         i += 1
         if i % 1000 == 0:
