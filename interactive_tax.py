@@ -107,8 +107,8 @@ def main():
                 ind = "\n\t" + "   " * (child_node_index - 1) + "|"
                 skill_str += ind + "->(taxon id %s, skill %0.3f)" % (child_inat_id, skill)
             print(skill_str)
-            if model.model_worker_trust:
-                print("\tWorker prob trust: %0.3f" % (worker.prob_trust,))
+            #if model.model_worker_trust:
+            #    print("\tWorker prob trust: %0.3f" % (worker.prob_trust,))
 
 
             # Create the annotation
@@ -156,6 +156,16 @@ def main():
             #         tax_prob_str += ind + "->(taxon id %s, prob %0.3f)" % (inat_id, prob)
 
             print(tax_prob_str)
+
+            # Print out the sibling probabilities
+            y_parent_node = y_node.parent
+            for child_node in y_parent_node.children.values():
+                integer_id = model.orig_node_key_to_integer_id[child_node.key]
+                prob = node_probabilities[integer_id]
+
+                inat_id = label_to_inat_taxon_id[child_node.key]
+                print("Sibling node %s: prob %0.5f" % (inat_id, prob))
+
             print()
             #print("Pred label: %s\tRisk: %0.5f" % (image.y.label, image.risk))
             #print()
