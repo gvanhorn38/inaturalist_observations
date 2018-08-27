@@ -69,8 +69,9 @@ def test(model_path, dataset_path, output_dir, verification_task=False):
         #class_probs = np.clip(test_dataset.global_class_priors, 0.00000001, 0.99999)
         class_probs = test_dataset.global_class_priors
     else:
-        assert False
-        class_probs = np.ones(test_dataset.num_classes) * (1. / test_dataset.num_classes)
+        #assert False
+        #class_probs = np.ones(test_dataset.num_classes) * (1. / test_dataset.num_classes)
+        class_probs = {node.key : 1. / test_dataset.num_classes for node in test_dataset.taxonomy.leaf_nodes()}
 
     test_dataset.class_probs = class_probs
     test_dataset.class_probs_prior = class_probs

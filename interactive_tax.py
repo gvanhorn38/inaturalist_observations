@@ -42,8 +42,9 @@ def main():
     if hasattr(model, 'global_class_priors'):
         class_probs = model.global_class_priors
     else:
-        assert False
-        class_probs = np.ones(model.num_classes) * (1. / model.num_classes)
+        #assert False
+        #class_probs = np.ones(model.num_classes) * (1. / model.num_classes)
+        class_probs = {node.key : 1. / model.num_classes for node in model.taxonomy.leaf_nodes()}
 
     model.class_probs = class_probs
     model.class_probs_prior = class_probs
@@ -51,9 +52,14 @@ def main():
     model.initialize_default_priors()
     model.initialize_data_structures()
 
-    if not hasattr(model, 'inat_taxon_id_to_class_label'):
-        print("ERROR: inat_taxon_id_to_class_label needs to be present")
-        return
+    if hasattr(model, 'inat_taxon_id_to_class_label'):
+        inat_taxon_id_to_class_label = model.inat_taxon_id_to_class_label
+    else:
+        # Assume that the node keys are the inat taxon ids
+        inat_taxon_id_to_class_label = {k : k for k in model.nodes}
+
+        #print("ERROR: inat_taxon_id_to_class_label needs to be present")
+        #return
 
     label_to_inat_taxon_id = {v : k for k, v in model.inat_taxon_id_to_class_label.items()}
 
@@ -74,11 +80,11 @@ def main():
             taxon_id = str(raw_input("Taxon id: "))
             if taxon_id == '':
                 break
-            if taxon_id not in model.inat_taxon_id_to_class_label:
+            if taxon_id not in inat_taxon_id_to_class_label:
                 print("ERROR: Taxon id %s does not exist in the priors" % (taxon_id,))
                 continue
 
-            label = model.inat_taxon_id_to_class_label[taxon_id]
+            label = inat_taxon_id_to_class_label[taxon_id]
             node = model.taxonomy.nodes[label]
 
             print("Worker %s adding an identification of taxon %s with prior = %0.4f" % (worker_id, taxon_id, node.data['prob']))

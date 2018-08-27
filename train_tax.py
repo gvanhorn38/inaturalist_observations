@@ -94,8 +94,9 @@ def train(dataset_path, output_dir, estimate_priors_automatically=False, verific
         #class_probs = np.clip(dataset.global_class_priors, 0.00000001, 0.99999)
         class_probs = dataset.global_class_priors
     else:
-        assert False
-        class_probs = np.ones(dataset.num_classes) * (1. / dataset.num_classes)
+        #assert False
+        #class_probs = np.ones(dataset.num_classes) * (1. / dataset.num_classes)
+        class_probs = {node.key : 1. / dataset.num_classes for node in dataset.taxonomy.leaf_nodes()}
 
     dataset.class_probs = class_probs
     dataset.class_probs_prior = class_probs
