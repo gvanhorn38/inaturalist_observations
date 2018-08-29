@@ -56,7 +56,7 @@ def main():
         inat_taxon_id_to_class_label = model.inat_taxon_id_to_class_label
     else:
         # Assume that the node keys are the inat taxon ids
-        inat_taxon_id_to_class_label = {k : k for k in model.nodes}
+        inat_taxon_id_to_class_label = {k : k for k in model.taxonomy.nodes}
 
         #print("ERROR: inat_taxon_id_to_class_label needs to be present")
         #return
