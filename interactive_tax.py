@@ -61,7 +61,7 @@ def main():
         #print("ERROR: inat_taxon_id_to_class_label needs to be present")
         #return
 
-    label_to_inat_taxon_id = {v : k for k, v in model.inat_taxon_id_to_class_label.items()}
+    label_to_inat_taxon_id = {v : k for k, v in inat_taxon_id_to_class_label.items()}
 
     image_id = 0
     while True:
