@@ -115,7 +115,7 @@ def train(dataset_path, output_dir, estimate_priors_automatically=False, verific
     if profile:
         pr.enable()
     s = time.time()
-    dataset.estimate_parameters(avoid_if_finished=True)
+    dataset.estimate_parameters(avoid_if_finished=True, max_iters=5)
     e = time.time()
     if profile:
         pr.disable()
